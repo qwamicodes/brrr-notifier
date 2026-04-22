@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 export const NotificationStatusSchema = z.enum([
   'success',
@@ -7,8 +7,8 @@ export const NotificationStatusSchema = z.enum([
   'in_progress',
   'cancelled',
   'info',
-  'unknown'
-]);
+  'unknown',
+])
 
 export const NotificationKindSchema = z.enum([
   'build',
@@ -17,8 +17,8 @@ export const NotificationKindSchema = z.enum([
   'restart',
   'cleanup',
   'threshold',
-  'generic'
-]);
+  'generic',
+])
 
 export const NormalizedDokployInputSchema = z.object({
   source: z.literal('dokploy'),
@@ -42,9 +42,12 @@ export const NormalizedDokployInputSchema = z.object({
   open_url: z.string().nullable().optional(),
   thread_id: z.string().nullable().optional(),
   dedupe_key: z.string().min(1),
-  metadata: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).nullable().optional(),
-  raw: z.unknown().optional()
-});
+  metadata: z
+    .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
+    .nullable()
+    .optional(),
+  raw: z.unknown().optional(),
+})
 
 export const BrrrPayloadSchema = z.object({
   title: z.string().min(1),
@@ -67,7 +70,7 @@ export const BrrrPayloadSchema = z.object({
       'duck_quack',
       'short_triple_blink',
       'upbeat_bells',
-      'warm_soft_error'
+      'warm_soft_error',
     ])
     .optional(),
   open_url: z.string().url().optional(),
@@ -75,5 +78,5 @@ export const BrrrPayloadSchema = z.object({
   expiration_date: z.string().datetime().optional(),
   filter_criteria: z.string().min(1).optional(),
   interruption_level: z.enum(['passive', 'active', 'time-sensitive']).optional(),
-  thread_id: z.string().min(1).optional()
-});
+  thread_id: z.string().min(1).optional(),
+})
