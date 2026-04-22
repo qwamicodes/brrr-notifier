@@ -1,0 +1,11 @@
+services:
+  brrr-notifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: brrr-notifier
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "4888:4888"
