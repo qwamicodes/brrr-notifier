@@ -1,21 +1,20 @@
-import type { NotificationStatus } from '../domain/types';
+import type { NotificationStatus } from '../domain/types'
 
 export function formatNotificationStatus(status: NotificationStatus): string {
   switch (status) {
     case 'success':
-      return '✅ SUCCESS';
+      return '✅ SUCCESS'
     case 'failure':
-      return '❌ FAILED';
+      return '❌ FAILED'
     case 'warning':
-      return '⚠️ WARNING';
+      return '⚠️ WARNING'
     case 'in_progress':
-      return '🚧 IN PROGRESS';
+      return '🚧 IN PROGRESS'
     case 'cancelled':
-      return '⏹️ CANCELLED';
+      return '⏹️ CANCELLED'
     case 'info':
-      return 'ℹ️ INFO';
-    case 'unknown':
+      return 'ℹ️ INFO'
     default:
-      return '❔ UNKNOWN';
+      return '❔ UNKNOWN'
   }
 }
