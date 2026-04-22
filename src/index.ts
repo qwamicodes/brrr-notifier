@@ -1,14 +1,17 @@
-import { app } from './app';
-import { env } from './config/env';
-import { getWebhookUrls, resolvePublicBaseUrl } from './modules/notifications/webhooks';
+import { app } from './app'
+import { env } from './config/env'
+import { logger } from './lib/logger'
+import { getWebhookUrls, resolvePublicBaseUrl } from './modules/notifications/webhooks'
 
 app.listen(env.PORT, () => {
-  const publicBaseUrl = resolvePublicBaseUrl(env.PORT, env.PUBLIC_BASE_URL);
-  const webhookUrls = getWebhookUrls(publicBaseUrl);
+  const publicBaseUrl = resolvePublicBaseUrl(env.PORT, env.PUBLIC_BASE_URL)
+  const webhookUrls = getWebhookUrls(publicBaseUrl)
 
-  if (env.LOG_LEVEL === 'debug' || env.LOG_LEVEL === 'info') {
-    console.info(`[brrr-notifier] listening on port ${env.PORT} (${env.NODE_ENV})`);
-    console.info('[brrr-notifier] webhook urls:');
-    console.info(`- Dokploy: ${webhookUrls.dokploy}`);
-  }
-});
+  logger.info({
+    event_name: 'app_startup',
+    outcome: 'success',
+    port: env.PORT,
+    public_base_url: publicBaseUrl,
+    webhook_urls: webhookUrls,
+  })
+})
