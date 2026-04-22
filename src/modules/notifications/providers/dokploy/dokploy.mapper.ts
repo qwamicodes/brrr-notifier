@@ -1,12 +1,12 @@
-import type { BrrrPayload, NormalizedDokployInput } from '../../domain/types';
-import { formatNotificationTitle } from '../../utils/title';
+import type { BrrrPayload, NormalizedDokployInput } from '../../domain/types'
+import { formatNotificationTitle } from '../../utils/title'
 
 export function mapDokployToBrrr(input: NormalizedDokployInput): BrrrPayload {
   return {
     title: formatNotificationTitle({
       app_name: input.app_name,
       environment: input.environment,
-      status: input.status
+      status: input.status,
     }),
     subtitle: input.subtitle ?? input.summary ?? undefined,
     message: input.message,
@@ -16,6 +16,6 @@ export function mapDokployToBrrr(input: NormalizedDokployInput): BrrrPayload {
     expiration_date: input.expiration_date ?? undefined,
     filter_criteria: input.filter_criteria ?? undefined,
     interruption_level: input.interruption_level ?? undefined,
-    thread_id: input.thread_id ?? undefined
-  };
+    thread_id: input.thread_id ?? undefined,
+  }
 }

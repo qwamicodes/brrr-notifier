@@ -1,43 +1,53 @@
-import { Elysia } from 'elysia';
-import { ZodError } from 'zod';
-import { mapDokployToBrrr } from './dokploy.mapper';
-import { normalizeDokployPayload } from './dokploy.normalizer';
-import { DokployRawPayloadSchema } from './dokploy.schemas';
-import { sendToBrrr } from '../../services/brrr.service';
+import { Elysia } from 'elysia'
 
-export const dokployRoutes = new Elysia({ prefix: '/webhooks' }).post('/dokploy', async ({ body, set }) => {
-  try {
-    // Loose validation first to keep raw payload handling predictable.
-    const rawPayload = DokployRawPayloadSchema.parse(body);
-    const normalized = normalizeDokployPayload(rawPayload);
-    const brrrPayload = mapDokployToBrrr(normalized);
+import { base } from '../../../../shared/plugins/base'
+import { sendToBrrr } from '../../services/brrr.service'
 
-    await sendToBrrr(brrrPayload);
+import { mapDokployToBrrr } from './dokploy.mapper'
+import { normalizeDokployPayload } from './dokploy.normalizer'
+import { DokployRawPayloadSchema } from './dokploy.schemas'
 
-    set.status = 202;
-    return {
-      ok: true,
-      accepted: true,
-      source: normalized.source,
-      title: brrrPayload.title
-    };
-  } catch (error) {
-    if (error instanceof ZodError) {
-      set.status = 400;
+export const dokployRoutes = new Elysia({
+  name: 'Webhooks',
+  prefix: '/webhooks',
+})
+  .use(base)
+  .post(
+    '/dokploy',
+    async ({ body, set, internal_logger }) => {
+      internal_logger.set('flow', 'dokploy-webhook-ingest')
+      internal_logger.set('provider', 'dokploy')
+      internal_logger._sample()
+
+      const normalized = normalizeDokployPayload(body)
+      const brrrPayload = mapDokployToBrrr(normalized)
+
+      internal_logger.set('normalized_event', {
+        source: normalized.source,
+        source_event: normalized.source_event ?? 'unknown',
+        kind: normalized.kind,
+        status: normalized.status,
+        app_name: normalized.app_name,
+        environment: normalized.environment ?? 'default',
+        dedupe_key: normalized.dedupe_key,
+        thread_id: normalized.thread_id ?? 'unknown',
+      })
+
+      const sendResult = await sendToBrrr(brrrPayload, internal_logger)
+
+      set.status = 202
+      internal_logger.set('outcome', 'success')
+      internal_logger.set('brrr_status', sendResult.status)
+      internal_logger.set('notification_title', brrrPayload.title)
+
       return {
-        ok: false,
-        accepted: false,
-        error: `Invalid Dokploy webhook payload: ${error.issues
-          .map((issue) => issue.message)
-          .join(', ')}`
-      };
-    }
-
-    set.status = 502;
-    return {
-      ok: false,
-      accepted: false,
-      error: error instanceof Error ? error.message : 'Unexpected error while ingesting Dokploy webhook'
-    };
-  }
-});
+        ok: true,
+        accepted: true,
+        source: normalized.source,
+        title: brrrPayload.title,
+      }
+    },
+    {
+      body: DokployRawPayloadSchema,
+    },
+  )

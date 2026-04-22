@@ -1,13 +1,13 @@
-import { NotificationStatusSchema } from '../../domain/schemas';
+import { NotificationStatusSchema } from '../../domain/schemas'
 import type {
   NormalizedDokployInput,
   NotificationKind,
   NotificationMetadataValue,
-  NotificationStatus
-} from '../../domain/types';
-import type { DokployRawPayload } from './dokploy.types';
-import { DokployRawPayloadSchema } from './dokploy.schemas';
-import { createDokployDedupeKey } from '../../utils/dedupe';
+  NotificationStatus,
+} from '../../domain/types'
+import type { DokployRawPayload } from './dokploy.types'
+import { DokployRawPayloadSchema } from './dokploy.schemas'
+import { createDokployDedupeKey } from '../../utils/dedupe'
 
 const EVENT_TO_KIND: Record<string, NotificationKind> = {
   appDeploy: 'deploy',
@@ -17,8 +17,8 @@ const EVENT_TO_KIND: Record<string, NotificationKind> = {
   volumeBackup: 'backup',
   dokployRestart: 'restart',
   dockerCleanup: 'cleanup',
-  serverThreshold: 'threshold'
-};
+  serverThreshold: 'threshold',
+}
 
 const EVENT_TO_STATUS: Record<string, NotificationStatus> = {
   appBuildError: 'failure',
@@ -28,8 +28,8 @@ const EVENT_TO_STATUS: Record<string, NotificationStatus> = {
   dokployBackup: 'success',
   volumeBackup: 'success',
   dokployRestart: 'success',
-  dockerCleanup: 'success'
-};
+  dockerCleanup: 'success',
+}
 
 const ALLOWED_SOUNDS = new Set([
   'default',
@@ -47,66 +47,68 @@ const ALLOWED_SOUNDS = new Set([
   'duck_quack',
   'short_triple_blink',
   'upbeat_bells',
-  'warm_soft_error'
-]);
+  'warm_soft_error',
+])
 
-const ALLOWED_INTERRUPTION_LEVELS = new Set(['passive', 'active', 'time-sensitive']);
+const ALLOWED_INTERRUPTION_LEVELS = new Set(['passive', 'active', 'time-sensitive'])
 
 function toOptionalString(value: unknown): string | null {
   if (typeof value !== 'string') {
-    return null;
+    return null
   }
 
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
 }
 
 function toOccurredAt(value: unknown): string {
   if (typeof value === 'string' || typeof value === 'number' || value instanceof Date) {
-    const date = new Date(value);
+    const date = new Date(value)
     if (!Number.isNaN(date.getTime())) {
-      return date.toISOString();
+      return date.toISOString()
     }
   }
 
-  return new Date().toISOString();
+  return new Date().toISOString()
 }
 
 function toIsoDateString(value: unknown): string | null {
   if (typeof value === 'string' || typeof value === 'number' || value instanceof Date) {
-    const date = new Date(value);
+    const date = new Date(value)
     if (!Number.isNaN(date.getTime())) {
-      return date.toISOString();
+      return date.toISOString()
     }
   }
-  return null;
+  return null
 }
 
 function toAllowedSound(value: unknown): string | null {
-  const candidate = toOptionalString(value);
+  const candidate = toOptionalString(value)
   if (!candidate) {
-    return null;
+    return null
   }
-  return ALLOWED_SOUNDS.has(candidate) ? candidate : null;
+  return ALLOWED_SOUNDS.has(candidate) ? candidate : null
 }
 
-function toAllowedInterruptionLevel(value: unknown): 'passive' | 'active' | 'time-sensitive' | null {
-  const candidate = toOptionalString(value);
+function toAllowedInterruptionLevel(
+  value: unknown,
+): 'passive' | 'active' | 'time-sensitive' | null {
+  const candidate = toOptionalString(value)
   if (!candidate) {
-    return null;
+    return null
   }
   return ALLOWED_INTERRUPTION_LEVELS.has(candidate)
     ? (candidate as 'passive' | 'active' | 'time-sensitive')
-    : null;
+    : null
 }
 
 function sanitizeMetadata(value: unknown): Record<string, NotificationMetadataValue> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
+    return null
   }
 
-  const entries = Object.entries(value as Record<string, unknown>);
-  const safe: Record<string, NotificationMetadataValue> = {};
+  const entries = Object.entries(value as Record<string, unknown>)
+  const safe: Record<string, NotificationMetadataValue> = {}
 
   for (const [key, raw] of entries) {
     if (
@@ -115,74 +117,63 @@ function sanitizeMetadata(value: unknown): Record<string, NotificationMetadataVa
       typeof raw === 'boolean' ||
       raw === null
     ) {
-      safe[key] = raw;
+      safe[key] = raw
     }
   }
 
-  return Object.keys(safe).length > 0 ? safe : null;
+  return Object.keys(safe).length > 0 ? safe : null
 }
 
 function normalizeStatusFromPayload(value: unknown): NotificationStatus | null {
-  const candidate = toOptionalString(value)?.toLowerCase();
+  const candidate = toOptionalString(value)?.toLowerCase()
   if (!candidate) {
-    return null;
+    return null
   }
 
-  const parsed = NotificationStatusSchema.safeParse(candidate);
-  return parsed.success ? parsed.data : null;
+  const parsed = NotificationStatusSchema.safeParse(candidate)
+  return parsed.success ? parsed.data : null
 }
 
 export function mapDokployEventToKind(sourceEvent?: string | null): NotificationKind {
   if (!sourceEvent) {
-    return 'generic';
+    return 'generic'
   }
 
-  return EVENT_TO_KIND[sourceEvent] ?? 'generic';
+  return EVENT_TO_KIND[sourceEvent] ?? 'generic'
 }
 
 export function mapDokployEventToStatus(sourceEvent?: string | null): NotificationStatus {
   if (!sourceEvent) {
-    return 'info';
+    return 'info'
   }
 
-  return EVENT_TO_STATUS[sourceEvent] ?? 'info';
+  return EVENT_TO_STATUS[sourceEvent] ?? 'info'
 }
 
 export function normalizeDokployPayload(payload: unknown): NormalizedDokployInput {
-  const parsed = DokployRawPayloadSchema.parse(payload) as DokployRawPayload;
+  const parsed = DokployRawPayloadSchema.parse(payload) as DokployRawPayload
 
   const appName =
-    toOptionalString(parsed.app_name) ??
-    toOptionalString(parsed.application_name) ??
-    'dokploy-app';
+    toOptionalString(parsed.app_name) ?? toOptionalString(parsed.application_name) ?? 'dokploy-app'
 
   const environment =
-    toOptionalString(parsed.environment) ??
-    toOptionalString(parsed.environment_name) ??
-    null;
+    toOptionalString(parsed.environment) ?? toOptionalString(parsed.environment_name) ?? null
 
   const sourceEvent =
-    toOptionalString(parsed.source_event) ??
-    toOptionalString(parsed.event) ??
-    null;
+    toOptionalString(parsed.source_event) ?? toOptionalString(parsed.event) ?? null
 
   const message =
     toOptionalString(parsed.message) ??
     toOptionalString(parsed.title) ??
-    'Dokploy notification received.';
+    'Dokploy notification received.'
 
-  const occurredAt = toOccurredAt(parsed.timestamp);
-  const kind = mapDokployEventToKind(sourceEvent);
-  const explicitStatus = normalizeStatusFromPayload(parsed.status);
-  const status = explicitStatus ?? mapDokployEventToStatus(sourceEvent);
-  const openUrl =
-    toOptionalString(parsed.open_url) ??
-    toOptionalString(parsed.details_url) ??
-    null;
+  const occurredAt = toOccurredAt(parsed.timestamp)
+  const kind = mapDokployEventToKind(sourceEvent)
+  const explicitStatus = normalizeStatusFromPayload(parsed.status)
+  const status = explicitStatus ?? mapDokployEventToStatus(sourceEvent)
+  const openUrl = toOptionalString(parsed.open_url) ?? toOptionalString(parsed.details_url) ?? null
 
-  const threadId = environment
-    ? `dokploy:${appName}:${environment}`
-    : `dokploy:${appName}`;
+  const threadId = environment ? `dokploy:${appName}:${environment}` : `dokploy:${appName}`
 
   const dedupeKey = createDokployDedupeKey({
     kind,
@@ -190,8 +181,8 @@ export function normalizeDokployPayload(payload: unknown): NormalizedDokployInpu
     environment,
     source_event: sourceEvent,
     status,
-    occurred_at: occurredAt
-  });
+    occurred_at: occurredAt,
+  })
 
   return {
     source: 'dokploy',
@@ -216,6 +207,6 @@ export function normalizeDokployPayload(payload: unknown): NormalizedDokployInpu
     thread_id: threadId,
     dedupe_key: dedupeKey,
     metadata: sanitizeMetadata(parsed.metadata),
-    raw: payload
-  };
+    raw: payload,
+  }
 }

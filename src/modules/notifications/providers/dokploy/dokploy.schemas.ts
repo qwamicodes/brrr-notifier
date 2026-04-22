@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 export const DokployRawPayloadSchema = z
   .object({
@@ -23,6 +23,6 @@ export const DokployRawPayloadSchema = z
     expiration_date: z.union([z.string(), z.number(), z.date()]).optional(),
     filter_criteria: z.string().optional(),
     interruption_level: z.string().optional(),
-    metadata: z.record(z.unknown()).optional()
+    metadata: z.record(z.unknown()).optional(),
   })
-  .passthrough();
+  .passthrough()
