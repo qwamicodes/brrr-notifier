@@ -5,9 +5,9 @@ import type {
   NotificationMetadataValue,
   NotificationStatus,
 } from '../../domain/types'
+import { createDokployDedupeKey } from '../../utils/dedupe'
 import type { DokployRawPayload } from './dokploy.types'
 import { DokployRawPayloadSchema } from './dokploy.schemas'
-import { createDokployDedupeKey } from '../../utils/dedupe'
 
 const EVENT_TO_KIND: Record<string, NotificationKind> = {
   appDeploy: 'deploy',

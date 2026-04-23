@@ -15,6 +15,7 @@ export const dokployRoutes = new Elysia({
   .post(
     '/dokploy',
     async ({ body, set, internal_logger }) => {
+      console.log('🚀~ dokploy raw payload', body)
       internal_logger.set('flow', 'dokploy-webhook-ingest')
       internal_logger.set('provider', 'dokploy')
       internal_logger._sample()
