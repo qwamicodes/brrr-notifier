@@ -1,7 +1,7 @@
 import { env } from '../../../config/env'
-import type { RequestLogger } from '../logging/logger.types'
 import { BrrrPayloadSchema } from '../domain/schemas'
 import type { BrrrPayload } from '../domain/types'
+import type { RequestLogger } from '../logging/logger.types'
 
 export type SendToBrrrResult = {
   ok: boolean
