@@ -6,29 +6,37 @@ import type {
   NotificationStatus,
 } from '../../domain/types'
 import { createDokployDedupeKey } from '../../utils/dedupe'
-import type { DokployRawPayload } from './dokploy.types'
 import { DokployRawPayloadSchema } from './dokploy.schemas'
+import type { DokployRawPayload } from './dokploy.types'
 
 const EVENT_TO_KIND: Record<string, NotificationKind> = {
   appDeploy: 'deploy',
   appBuildError: 'build',
   databaseBackup: 'backup',
   dokployBackup: 'backup',
+  'dokploy-backup': 'backup',
   volumeBackup: 'backup',
   dokployRestart: 'restart',
+  'dokploy-restart': 'restart',
   dockerCleanup: 'cleanup',
+  'docker-cleanup': 'cleanup',
   serverThreshold: 'threshold',
+  'server-threshold': 'threshold',
 }
 
 const EVENT_TO_STATUS: Record<string, NotificationStatus> = {
   appBuildError: 'failure',
   serverThreshold: 'warning',
+  'server-threshold': 'warning',
   appDeploy: 'success',
   databaseBackup: 'success',
   dokployBackup: 'success',
+  'dokploy-backup': 'success',
   volumeBackup: 'success',
   dokployRestart: 'success',
+  'dokploy-restart': 'success',
   dockerCleanup: 'success',
+  'docker-cleanup': 'success',
 }
 
 const ALLOWED_SOUNDS = new Set([
@@ -130,8 +138,49 @@ function normalizeStatusFromPayload(value: unknown): NotificationStatus | null {
     return null
   }
 
+  if (candidate === 'error' || candidate === 'failed' || candidate === 'fail') {
+    return 'failure'
+  }
+  if (candidate === 'alert') {
+    return 'warning'
+  }
+  if (candidate === 'running') {
+    return 'in_progress'
+  }
+  if (candidate === 'canceled') {
+    return 'cancelled'
+  }
+
   const parsed = NotificationStatusSchema.safeParse(candidate)
   return parsed.success ? parsed.data : null
+}
+
+function inferSourceEvent(parsed: DokployRawPayload): string | null {
+  const directEvent =
+    toOptionalString(parsed.source_event) ??
+    toOptionalString(parsed.event) ??
+    toOptionalString(parsed.type)
+  if (directEvent) {
+    return directEvent
+  }
+
+  if (toOptionalString(parsed.alertType) === 'server-threshold') {
+    return 'server-threshold'
+  }
+
+  if (toOptionalString(parsed.databaseType) || toOptionalString(parsed.databaseName)) {
+    return 'databaseBackup'
+  }
+
+  if (toOptionalString(parsed.volumeName) || toOptionalString(parsed.serviceType)) {
+    return 'volumeBackup'
+  }
+
+  if (toOptionalString(parsed.buildLink)) {
+    return 'build'
+  }
+
+  return null
 }
 
 export function mapDokployEventToKind(sourceEvent?: string | null): NotificationKind {
@@ -158,10 +207,6 @@ export function mapDokployEventToStatus(sourceEvent?: string | null): Notificati
     return 'info'
   }
 
-  if (sourceEvent === 'build') {
-    return 'success'
-  }
-
   return EVENT_TO_STATUS[sourceEvent] ?? 'info'
 }
 
@@ -177,11 +222,7 @@ export function normalizeDokployPayload(payload: unknown): NormalizedDokployInpu
   const environment =
     toOptionalString(parsed.environment) ?? toOptionalString(parsed.environment_name) ?? null
 
-  const sourceEvent =
-    toOptionalString(parsed.source_event) ??
-    toOptionalString(parsed.event) ??
-    toOptionalString(parsed.type) ??
-    null
+  const sourceEvent = inferSourceEvent(parsed)
 
   const message =
     toOptionalString(parsed.message) ??
@@ -220,7 +261,7 @@ export function normalizeDokployPayload(payload: unknown): NormalizedDokployInpu
     project_name: toOptionalString(parsed.project_name) ?? toOptionalString(parsed.projectName),
     application_type:
       toOptionalString(parsed.application_type) ?? toOptionalString(parsed.applicationType),
-    server_name: toOptionalString(parsed.server_name),
+    server_name: toOptionalString(parsed.server_name) ?? toOptionalString(parsed.serverName),
     message,
     summary: toOptionalString(parsed.title),
     subtitle: toOptionalString(parsed.subtitle),
@@ -237,6 +278,16 @@ export function normalizeDokployPayload(payload: unknown): NormalizedDokployInpu
       sanitizeMetadata({
         domains: toOptionalString(parsed.domains),
         date: toOptionalString(parsed.date),
+        errorMessage: toOptionalString(parsed.errorMessage),
+        databaseType: toOptionalString(parsed.databaseType),
+        databaseName: toOptionalString(parsed.databaseName),
+        volumeName: toOptionalString(parsed.volumeName),
+        serviceType: toOptionalString(parsed.serviceType),
+        backupType: toOptionalString(parsed.backupType),
+        backupSize: toOptionalString(parsed.backupSize),
+        cleanupMessage: toOptionalString(parsed.cleanupMessage),
+        currentValue: typeof parsed.currentValue === 'number' ? parsed.currentValue : null,
+        threshold: typeof parsed.threshold === 'number' ? parsed.threshold : null,
       }),
     raw: payload,
   }
