@@ -139,12 +139,27 @@ export function mapDokployEventToKind(sourceEvent?: string | null): Notification
     return 'generic'
   }
 
+  if (
+    sourceEvent === 'build' ||
+    sourceEvent === 'deploy' ||
+    sourceEvent === 'backup' ||
+    sourceEvent === 'restart' ||
+    sourceEvent === 'cleanup' ||
+    sourceEvent === 'threshold'
+  ) {
+    return sourceEvent
+  }
+
   return EVENT_TO_KIND[sourceEvent] ?? 'generic'
 }
 
 export function mapDokployEventToStatus(sourceEvent?: string | null): NotificationStatus {
   if (!sourceEvent) {
     return 'info'
+  }
+
+  if (sourceEvent === 'build') {
+    return 'success'
   }
 
   return EVENT_TO_STATUS[sourceEvent] ?? 'info'
@@ -154,13 +169,19 @@ export function normalizeDokployPayload(payload: unknown): NormalizedDokployInpu
   const parsed = DokployRawPayloadSchema.parse(payload) as DokployRawPayload
 
   const appName =
-    toOptionalString(parsed.app_name) ?? toOptionalString(parsed.application_name) ?? 'dokploy-app'
+    toOptionalString(parsed.app_name) ??
+    toOptionalString(parsed.application_name) ??
+    toOptionalString(parsed.applicationName) ??
+    'dokploy-app'
 
   const environment =
     toOptionalString(parsed.environment) ?? toOptionalString(parsed.environment_name) ?? null
 
   const sourceEvent =
-    toOptionalString(parsed.source_event) ?? toOptionalString(parsed.event) ?? null
+    toOptionalString(parsed.source_event) ??
+    toOptionalString(parsed.event) ??
+    toOptionalString(parsed.type) ??
+    null
 
   const message =
     toOptionalString(parsed.message) ??
@@ -171,7 +192,11 @@ export function normalizeDokployPayload(payload: unknown): NormalizedDokployInpu
   const kind = mapDokployEventToKind(sourceEvent)
   const explicitStatus = normalizeStatusFromPayload(parsed.status)
   const status = explicitStatus ?? mapDokployEventToStatus(sourceEvent)
-  const openUrl = toOptionalString(parsed.open_url) ?? toOptionalString(parsed.details_url) ?? null
+  const openUrl =
+    toOptionalString(parsed.open_url) ??
+    toOptionalString(parsed.details_url) ??
+    toOptionalString(parsed.buildLink) ??
+    null
 
   const threadId = environment ? `dokploy:${appName}:${environment}` : `dokploy:${appName}`
 
@@ -192,8 +217,9 @@ export function normalizeDokployPayload(payload: unknown): NormalizedDokployInpu
     occurred_at: occurredAt,
     app_name: appName,
     environment,
-    project_name: toOptionalString(parsed.project_name),
-    application_type: toOptionalString(parsed.application_type),
+    project_name: toOptionalString(parsed.project_name) ?? toOptionalString(parsed.projectName),
+    application_type:
+      toOptionalString(parsed.application_type) ?? toOptionalString(parsed.applicationType),
     server_name: toOptionalString(parsed.server_name),
     message,
     summary: toOptionalString(parsed.title),
@@ -206,7 +232,12 @@ export function normalizeDokployPayload(payload: unknown): NormalizedDokployInpu
     open_url: openUrl,
     thread_id: threadId,
     dedupe_key: dedupeKey,
-    metadata: sanitizeMetadata(parsed.metadata),
+    metadata:
+      sanitizeMetadata(parsed.metadata) ??
+      sanitizeMetadata({
+        domains: toOptionalString(parsed.domains),
+        date: toOptionalString(parsed.date),
+      }),
     raw: payload,
   }
 }

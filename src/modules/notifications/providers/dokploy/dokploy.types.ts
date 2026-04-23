@@ -9,13 +9,20 @@ export type DokployRawPayload = {
   status?: unknown
   app_name?: unknown
   application_name?: unknown
+  projectName?: unknown
+  applicationName?: unknown
   environment?: unknown
   environment_name?: unknown
   project_name?: unknown
   application_type?: unknown
+  applicationType?: unknown
   server_name?: unknown
   open_url?: unknown
   details_url?: unknown
+  buildLink?: unknown
+  date?: unknown
+  domains?: unknown
+  type?: unknown
   subtitle?: unknown
   sound?: unknown
   image_url?: unknown
