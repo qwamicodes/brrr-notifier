@@ -10,6 +10,32 @@ export const JobResultSchema = z.enum([
   'action_required',
 ])
 
+const JobResultInputSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const normalized = value.trim().toLowerCase()
+
+  if (normalized.length === 0) {
+    return 'skipped'
+  }
+
+  if (normalized === 'canceled') {
+    return 'cancelled'
+  }
+
+  if (normalized === 'timed-out') {
+    return 'timed_out'
+  }
+
+  if (normalized === 'action-required') {
+    return 'action_required'
+  }
+
+  return normalized
+}, JobResultSchema)
+
 const BaseNotifierPayloadSchema = z.object({
   source: z.literal('github-actions'),
   workflow: z.string().min(1),
@@ -25,16 +51,16 @@ const BaseNotifierPayloadSchema = z.object({
 const CiPayloadSchema = BaseNotifierPayloadSchema.extend({
   environment: z.literal('ci'),
   results: z.object({
-    validate: JobResultSchema,
+    validate: JobResultInputSchema,
   }),
 })
 
 const StageProdPayloadSchema = BaseNotifierPayloadSchema.extend({
   environment: z.union([z.literal('staging'), z.literal('production')]),
   results: z.object({
-    plan: JobResultSchema,
-    build: JobResultSchema,
-    redeploy: JobResultSchema,
+    plan: JobResultInputSchema,
+    build: JobResultInputSchema,
+    redeploy: JobResultInputSchema,
   }),
   changed_apps_count: z.coerce.number().int().min(0),
 })
