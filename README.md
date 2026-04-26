@@ -12,7 +12,7 @@ This service is split into clear layers:
 - Sender/transport layer: delivers notifications to brrr via `/v1/send`.
 - Shared types/schemas: keeps contracts explicit and reusable for new providers.
 
-Dokploy-specific logic is isolated under `src/modules/notifications/providers/dokploy` so GitHub Actions, Expo, and others can be added as sibling providers later.
+Provider-specific logic is isolated under `src/modules/notifications/providers/*` so GitHub Actions, Expo, and others can be added as sibling providers.
 
 ## 2. Project folder tree
 
@@ -33,12 +33,18 @@ Dokploy-specific logic is isolated under `src/modules/notifications/providers/do
             │   ├── schemas.ts
             │   └── types.ts
             ├── providers
-            │   └── dokploy
-            │       ├── dokploy.mapper.ts
-            │       ├── dokploy.normalizer.ts
-            │       ├── dokploy.routes.ts
-            │       ├── dokploy.schemas.ts
-            │       └── dokploy.types.ts
+            │   ├── dokploy
+            │   │   ├── dokploy.mapper.ts
+            │   │   ├── dokploy.normalizer.ts
+            │   │   ├── dokploy.routes.ts
+            │   │   ├── dokploy.schemas.ts
+            │   │   └── dokploy.types.ts
+            │   └── github-actions
+            │       ├── github-actions.mapper.ts
+            │       ├── github-actions.normalizer.ts
+            │       ├── github-actions.routes.ts
+            │       ├── github-actions.schemas.ts
+            │       └── github-actions.types.ts
             ├── services
             │   └── brrr.service.ts
             └── utils
@@ -74,11 +80,12 @@ bun run dev
 
 Server starts on `http://localhost:4888` by default.
 
-## Route
+## Routes
 
-`POST /webhooks/dokploy`
+- `POST /webhooks/dokploy`
+- `POST /webhooks/github-actions`
 
-Accepts Dokploy webhook payloads, normalizes them, maps them into a brrr payload, and forwards them to brrr.
+Both routes validate request bodies with typed Elysia + Zod schemas, normalize payloads, map to brrr payloads, and forward to brrr.
 
 ## Test with curl
 
@@ -112,6 +119,31 @@ curl -X POST http://localhost:4888/webhooks/dokploy \
       "duration_seconds": 72,
       "initiated_by": "system"
     }
+  }'
+```
+
+GitHub Actions payload:
+
+```bash
+curl -X POST http://localhost:4888/webhooks/github-actions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source": "github-actions",
+    "workflow": "deploy-apps",
+    "event": "workflow_dispatch",
+    "run_id": "123456789",
+    "run_attempt": "1",
+    "repository": "qwamicodes/resultcheckerhub",
+    "sha": "a1b2c3d4e5f6",
+    "ref": "refs/heads/main",
+    "actor": "qwamicodes",
+    "environment": "staging",
+    "results": {
+      "plan": "success",
+      "build": "success",
+      "redeploy": "success"
+    },
+    "changed_apps_count": 2
   }'
 ```
 
