@@ -139,13 +139,24 @@ curl -X POST http://localhost:4888/webhooks/github-actions \
     "actor": "qwamicodes",
     "environment": "staging",
     "results": {
-      "plan": "success",
-      "build": "success",
-      "redeploy": "success"
+      "detect": "success",
+      "web": "success",
+      "admin": "skipped"
     },
-    "changed_apps_count": 2
+    "release_tag": "v1.2.3",
+    "changes": {
+      "web": "true",
+      "admin": "false",
+      "dealer": "false",
+      "count": "1"
+    }
   }'
 ```
+
+The GitHub Actions webhook requires the run identity fields above, accepts any
+job names inside `results`, and preserves any additional JSON fields in the
+brrr message. `changed_apps_count` is optional; if omitted, the notifier also
+uses `changes.count` when present.
 
 ## Example normalized output
 

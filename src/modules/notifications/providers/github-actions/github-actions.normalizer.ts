@@ -26,12 +26,48 @@ function findOverallResult(results: Record<string, JobResult>): JobResult {
   return 'neutral'
 }
 
+function getChangedAppsCount(payload: GithubNotifierPayload): number | undefined {
+  if (typeof payload.changed_apps_count === 'number') {
+    return payload.changed_apps_count
+  }
+
+  if (
+    typeof payload.changes === 'object' &&
+    payload.changes !== null &&
+    'count' in payload.changes
+  ) {
+    const count = Number(payload.changes.count)
+
+    if (Number.isInteger(count) && count >= 0) {
+      return count
+    }
+  }
+
+  return undefined
+}
+
 export function normalizeGithubActionsPayload(
   payload: GithubNotifierPayload,
 ): NormalizedGithubActionsInput {
   const results = payload.results as Record<string, JobResult>
   const overallResult = findOverallResult(results)
   const openUrl = `https://github.com/${payload.repository}/actions/runs/${payload.run_id}/attempts/${payload.run_attempt}`
+  const changedAppsCount = getChangedAppsCount(payload)
+  const {
+    source: _source,
+    workflow: _workflow,
+    event: _event,
+    run_id: _runId,
+    run_attempt: _runAttempt,
+    repository: _repository,
+    sha: _sha,
+    ref: _ref,
+    actor: _actor,
+    environment: _environment,
+    results: _results,
+    changed_apps_count: _changedAppsCount,
+    ...extraFields
+  } = payload
 
   return {
     source: 'github-actions',
@@ -45,7 +81,8 @@ export function normalizeGithubActionsPayload(
     actor: payload.actor,
     environment: payload.environment,
     results,
-    changed_apps_count: payload.environment === 'ci' ? undefined : payload.changed_apps_count,
+    changed_apps_count: payload.environment === 'ci' ? undefined : changedAppsCount,
+    extra_fields: extraFields,
     overall_result: overallResult,
     occurred_at: new Date().toISOString(),
     open_url: openUrl,

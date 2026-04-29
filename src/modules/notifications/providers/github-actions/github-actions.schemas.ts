@@ -36,7 +36,7 @@ const JobResultInputSchema = z.preprocess((value) => {
   return normalized
 }, JobResultSchema)
 
-const BaseNotifierPayloadSchema = z.object({
+export const BaseNotifierPayloadSchema = z.object({
   source: z.literal('github-actions'),
   workflow: z.string().min(1),
   event: z.string().min(1),
@@ -46,27 +46,9 @@ const BaseNotifierPayloadSchema = z.object({
   sha: z.string().min(7),
   ref: z.string().min(1),
   actor: z.string().min(1),
+  environment: z.string().min(1),
+  results: z.record(JobResultInputSchema).default({}),
+  changed_apps_count: z.coerce.number().int().min(0).optional(),
 })
 
-const CiPayloadSchema = BaseNotifierPayloadSchema.extend({
-  environment: z.literal('ci'),
-  results: z.object({
-    validate: JobResultInputSchema,
-  }),
-})
-
-const StageProdPayloadSchema = BaseNotifierPayloadSchema.extend({
-  environment: z.union([z.literal('staging'), z.literal('production')]),
-  results: z.object({
-    plan: JobResultInputSchema,
-    build: JobResultInputSchema,
-    redeploy: JobResultInputSchema,
-  }),
-  changed_apps_count: z.coerce.number().int().min(0),
-})
-
-export const GithubNotifierPayloadSchema = z.discriminatedUnion('environment', [
-  CiPayloadSchema,
-  StageProdPayloadSchema.extend({ environment: z.literal('staging') }),
-  StageProdPayloadSchema.extend({ environment: z.literal('production') }),
-])
+export const GithubNotifierPayloadSchema = BaseNotifierPayloadSchema.passthrough()

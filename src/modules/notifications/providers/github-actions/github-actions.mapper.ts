@@ -40,6 +40,24 @@ function formatEnvironment(environment: NormalizedGithubActionsInput['environmen
   return toTitleWords(environment)
 }
 
+function formatExtraValue(value: unknown): string {
+  if (value === null) {
+    return 'null'
+  }
+
+  if (typeof value === 'string') {
+    return value.length > 0 ? value : '(empty)'
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  const serialized = JSON.stringify(value)
+
+  return serialized ?? String(value)
+}
+
 export function mapGithubActionsToBrrr(input: NormalizedGithubActionsInput): BrrrPayload {
   const statusLabel = formatResult(input.overall_result)
   const environmentLabel = formatEnvironment(input.environment)
@@ -49,6 +67,9 @@ export function mapGithubActionsToBrrr(input: NormalizedGithubActionsInput): Brr
 
   const resultLines = Object.entries(input.results).map(
     ([jobName, result]) => `- ${toTitleWords(jobName)}: ${formatResult(result)}`,
+  )
+  const extraFieldLines = Object.entries(input.extra_fields).map(
+    ([fieldName, value]) => `- ${toTitleWords(fieldName)}: ${formatExtraValue(value)}`,
   )
 
   const message = [
@@ -66,6 +87,8 @@ export function mapGithubActionsToBrrr(input: NormalizedGithubActionsInput): Brr
     typeof input.changed_apps_count === 'number'
       ? `Changed Apps: ${input.changed_apps_count}`
       : null,
+    extraFieldLines.length > 0 ? 'Additional Payload:' : null,
+    ...extraFieldLines,
   ]
     .filter(Boolean)
     .join('\n')

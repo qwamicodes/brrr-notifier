@@ -5,8 +5,6 @@ import type { GithubNotifierPayloadSchema, JobResultSchema } from './github-acti
 export type JobResult = z.infer<typeof JobResultSchema>
 export type GithubNotifierPayload = z.infer<typeof GithubNotifierPayloadSchema>
 
-export type GithubEnvironment = 'ci' | 'staging' | 'production'
-
 export type NormalizedGithubActionsInput = {
   source: 'github-actions'
   workflow: string
@@ -17,9 +15,10 @@ export type NormalizedGithubActionsInput = {
   sha: string
   ref: string
   actor: string
-  environment: GithubEnvironment
+  environment: string
   results: Record<string, JobResult>
   changed_apps_count?: number
+  extra_fields: Record<string, unknown>
   overall_result: JobResult
   occurred_at: string
   open_url: string
