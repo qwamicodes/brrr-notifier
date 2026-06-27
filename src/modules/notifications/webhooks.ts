@@ -1,6 +1,7 @@
 export const webhookPaths = {
   dokploy: '/webhooks/dokploy',
   githubActions: '/webhooks/github-actions',
+  expoWorkflows: '/webhooks/expo-workflows',
 } as const
 
 export type WebhookProvider = keyof typeof webhookPaths
@@ -13,5 +14,6 @@ export function getWebhookUrls(baseUrl: string): Record<WebhookProvider, string>
   return {
     dokploy: `${baseUrl}${webhookPaths.dokploy}`,
     githubActions: `${baseUrl}${webhookPaths.githubActions}`,
+    expoWorkflows: `${baseUrl}${webhookPaths.expoWorkflows}`,
   }
 }

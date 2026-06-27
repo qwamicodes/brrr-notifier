@@ -39,6 +39,12 @@ Provider-specific logic is isolated under `src/modules/notifications/providers/*
             │   │   ├── dokploy.routes.ts
             │   │   ├── dokploy.schemas.ts
             │   │   └── dokploy.types.ts
+            │   ├── expo-workflows
+            │   │   ├── expo-workflows.mapper.ts
+            │   │   ├── expo-workflows.normalizer.ts
+            │   │   ├── expo-workflows.routes.ts
+            │   │   ├── expo-workflows.schemas.ts
+            │   │   └── expo-workflows.types.ts
             │   └── github-actions
             │       ├── github-actions.mapper.ts
             │       ├── github-actions.normalizer.ts
@@ -84,8 +90,9 @@ Server starts on `http://localhost:4888` by default.
 
 - `POST /webhooks/dokploy`
 - `POST /webhooks/github-actions`
+- `POST /webhooks/expo-workflows`
 
-Both routes validate request bodies with typed Elysia + Zod schemas, normalize payloads, map to brrr payloads, and forward to brrr.
+All routes validate request bodies with typed Elysia + Zod schemas, normalize payloads, map to brrr payloads, and forward to brrr.
 
 ## Test with curl
 
@@ -157,6 +164,43 @@ The GitHub Actions webhook requires the run identity fields above, accepts any
 job names inside `results`, and preserves any additional JSON fields in the
 brrr message. `changed_apps_count` is optional; if omitted, the notifier also
 uses `changes.count` when present.
+
+Expo workflow payload:
+
+```bash
+curl -X POST http://localhost:4888/webhooks/expo-workflows \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source": "expo-workflows",
+    "workflow": "production-build",
+    "workflow_run_id": "wf-run-123",
+    "run_attempt": "1",
+    "account_name": "qwamicodes",
+    "project_name": "brrr-mobile",
+    "app_name": "brrr",
+    "environment": "production",
+    "platform": "ios",
+    "profile": "production",
+    "branch": "main",
+    "actor": "qwamicodes",
+    "status": "success",
+    "jobs": {
+      "install": "success",
+      "test": "success",
+      "build_ios": "success"
+    },
+    "open_url": "https://expo.dev/accounts/qwamicodes/projects/brrr-mobile/workflows/wf-run-123",
+    "artifact_url": "https://expo.dev/artifacts/eas/example.ipa",
+    "commit_hash": "a1b2c3d4e5f6",
+    "channel": "production"
+  }'
+```
+
+The Expo route also accepts standard EAS Build and Submit webhook payloads from
+Expo, including fields such as `buildDetailsPageUrl`,
+`submissionDetailsPageUrl`, `artifacts.buildUrl`, `metadata.buildProfile`, and
+`submissionInfo.error.message`. Status values such as `finished`, `errored`,
+and `canceled` are normalized to brrr-friendly results.
 
 ## Example normalized output
 
