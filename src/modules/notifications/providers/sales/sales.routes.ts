@@ -116,19 +116,16 @@ export function createSalesRoutes({
           return errorResponse('IDENTITY_MISMATCH', false)
         }
 
-        const transaction = payload.event === 'sale.succeeded' ? payload.sale : payload.refund
-        const reference =
-          payload.event === 'sale.succeeded'
-            ? payload.sale.reference
-            : payload.refund.original_sale.reference
-
         internal_logger.set('sales_event', {
           event_id: payload.event_id,
           event_type: payload.event,
           platform: payload.source.platform,
-          reference,
-          amount_minor: transaction.amount.value,
-          currency: transaction.amount.currency,
+          sale_id: payload.sale.id,
+          exam_type: payload.sale.exam_type,
+          quantity: payload.sale.quantity,
+          amount: payload.sale.amount,
+          payment_provider: payload.sale.payment_provider,
+          channel: payload.sale.channel,
         })
 
         let claim: ReturnType<SalesEventStore['claim']>

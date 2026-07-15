@@ -16,14 +16,6 @@ const platforms = {
   },
 }
 
-function revenuePeriod(gross: number, refunded: number) {
-  return {
-    gross,
-    refunded,
-    net: gross - refunded,
-  }
-}
-
 function salePayload(eventId = 'evt_sale_123') {
   return {
     event: 'sale.succeeded',
@@ -34,82 +26,14 @@ function salePayload(eventId = 'evt_sale_123') {
       environment: 'production',
     },
     sale: {
-      id: 'sale_12345',
-      reference: 'CHK-2026-000123',
-      status: 'succeeded',
-      items: [
-        {
-          product_id: 'wassce-checker',
-          product_name: 'WASSCE Result Checker',
-          category: 'result-checker',
-          variant: '2026',
-          quantity: 2,
-          unit_amount: 7_500,
-          total_amount: 15_000,
-        },
-      ],
-      amount: {
-        value: 15_000,
-        currency: 'GHS',
-        unit: 'minor',
-      },
-      payment: {
-        provider: 'paystack',
-        method: 'mobile_money',
-        transaction_id: 'txn_98765',
-      },
+      id: '0198a2ac-7a71-7000-8000-000000000001',
+      exam_type: 'wassce',
+      quantity: 2,
+      amount: 'GHS 150.00',
+      payment_provider: 'hubtel',
       channel: 'web',
     },
-    revenue: {
-      currency: 'GHS',
-      timezone: 'Africa/Accra',
-      business_date: '2026-07-15',
-      calculated_at: '2026-07-15T14:30:00.000Z',
-      platform: {
-        today: revenuePeriod(425_000, 0),
-        month: revenuePeriod(6_250_000, 0),
-        all_time: revenuePeriod(28_450_000, 0),
-      },
-      business: {
-        today: revenuePeriod(810_000, 0),
-        month: revenuePeriod(12_400_000, 0),
-        all_time: revenuePeriod(59_750_000, 0),
-      },
-    },
-    links: {
-      dashboard: 'https://checkers.example.com/admin/sales/sale_12345',
-    },
-  }
-}
-
-function refundPayload() {
-  const sale = salePayload('evt_refund_456')
-  const { sale: originalSale, ...common } = sale
-
-  return {
-    ...common,
-    event: 'refund.succeeded',
-    refund: {
-      id: 'refund_456',
-      status: 'succeeded',
-      amount: {
-        value: 7_500,
-        currency: 'GHS',
-        unit: 'minor',
-      },
-      original_sale: {
-        id: originalSale.id,
-        reference: originalSale.reference,
-      },
-      items: [{ ...originalSale.items[0], quantity: 1, total_amount: 7_500 }],
-    },
-    revenue: {
-      ...sale.revenue,
-      platform: {
-        ...sale.revenue.platform,
-        today: revenuePeriod(425_000, 7_500),
-      },
-    },
+    dashboard_url: 'https://dashboard.example.com/purchases?q=0198a2ac-7a71-7000-8000-000000000001',
   }
 }
 
@@ -195,30 +119,26 @@ describe('sales webhook authentication', () => {
 })
 
 describe('sales notification mapping', () => {
-  test('creates a passive notification with sale and today revenue', () => {
+  test('creates a passive notification with the simplified sale fields', () => {
     const payload = SalesWebhookSchema.parse(salePayload())
 
     expect(mapSalesToBrrr(payload, 'Result Checker Hub')).toEqual({
       title: 'Result Checker Hub • Successful sale',
-      subtitle: '2× WASSCE Result Checker',
-      message: 'Sale: GHS 150.00 • Today: GHS 4,250.00',
-      open_url: 'https://checkers.example.com/admin/sales/sale_12345',
+      subtitle: 'Exam: WASSCE • Quantity: 2',
+      message: 'Amount: GHS 150.00 • Provider: hubtel • Channel: web',
+      open_url: 'https://dashboard.example.com/purchases?q=0198a2ac-7a71-7000-8000-000000000001',
       interruption_level: 'passive',
       thread_id: 'sales:result-checker-hub',
     })
   })
 
-  test('creates a passive partial refund notification', () => {
-    const payload = SalesWebhookSchema.parse(refundPayload())
-
-    expect(mapSalesToBrrr(payload, 'Result Checker Hub')).toEqual({
-      title: 'Result Checker Hub • Refund completed',
-      subtitle: '1× WASSCE Result Checker',
-      message: 'Refund: GHS 75.00 • Today: GHS 4,175.00',
-      open_url: 'https://checkers.example.com/admin/sales/sale_12345',
-      interruption_level: 'passive',
-      thread_id: 'sales:result-checker-hub',
-    })
+  test('rejects refund events', () => {
+    expect(
+      SalesWebhookSchema.safeParse({
+        ...salePayload(),
+        event: 'refund.succeeded',
+      }).success,
+    ).toBe(false)
   })
 })
 

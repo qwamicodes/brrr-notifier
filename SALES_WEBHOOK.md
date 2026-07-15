@@ -1,51 +1,47 @@
-# Sales webhook sender implementation brief
+# Sales webhook contract
 
-Implement a reliable webhook sender in the sales application using this exact
-contract. Send an event only after a sale or refund has been committed
-successfully in the sales application's source-of-truth database.
-
-## Endpoint and events
-
-Send requests to:
+The notifier accepts successful checker sales at:
 
 ```http
-POST {BRRR_NOTIFIER_BASE_URL}/webhooks/sales
+POST /webhooks/sales
 ```
 
-Implement these events:
-
-- `sale.succeeded`
-- `refund.succeeded`, including full and partial refunds
-
-Do not send pending, failed, or cancelled transactions.
+Only `sale.succeeded` is supported. Refund, pending, failed, and cancelled events
+are not accepted.
 
 ## Configuration
 
-The sales application needs:
-
-```env
-BRRR_NOTIFIER_BASE_URL=https://notifications.example.com
-SALES_WEBHOOK_PLATFORM=result-checker-hub
-SALES_WEBHOOK_SECRET=replace_with_the_same_random_secret_used_by_the_notifier
-```
-
-The notifier configures the receiving platform separately:
+Configure the notifier with a platform display name and signing secret:
 
 ```env
 SALES_WEBHOOK_PLATFORMS={"result-checker-hub":{"displayName":"Result Checker Hub","currentSecret":"replace_with_at_least_32_random_characters","previousSecret":"optional_previous_secret_of_at_least_32_chars"}}
+SALES_EVENT_DB_PATH=./data/sales-events.sqlite
 ```
+
+The sender uses the same platform identifier and secret:
+
+```env
+BRRR_NOTIFIER_BASE_URL=https://notifier.topsociety.agency
+SALES_WEBHOOK_PLATFORM=result-checker-hub
+SALES_WEBHOOK_SECRET=replace_with_the_same_secret_used_by_the_notifier
+SALES_WEBHOOK_ENABLED=false
+```
+
+Keep `SALES_WEBHOOK_ENABLED=false` until the matching notifier version is
+deployed and verified.
 
 ## Authentication
 
-Serialize the payload exactly once and preserve that raw JSON string for both
-signing and sending. Generate a Unix timestamp in seconds, then calculate a
-lowercase hexadecimal HMAC-SHA256 digest over:
+Serialize the payload exactly once. Use the same raw JSON bytes when generating
+the signature and sending the request.
+
+Calculate a lowercase hexadecimal HMAC-SHA256 digest over:
 
 ```text
 {timestamp}.{raw_json_body}
 ```
 
-Send these headers:
+Required headers:
 
 ```http
 Content-Type: application/json
@@ -55,39 +51,11 @@ X-Webhook-Timestamp: 1784125800
 X-Webhook-Signature: sha256=<lowercase-hex-hmac>
 ```
 
-`X-Webhook-Id` must equal `event_id`, and `X-Webhook-Platform` must equal
-`source.platform`. Each retry must keep the same event ID but use a fresh
-timestamp and signature. The notifier rejects timestamps older or newer than
-five minutes.
+`X-Webhook-Id` must equal `event_id`. `X-Webhook-Platform` must equal
+`source.platform`. The timestamp must be within five minutes of the notifier's
+clock.
 
-TypeScript signing example:
-
-```ts
-import { createHmac } from 'node:crypto'
-
-const rawBody = JSON.stringify(payload)
-const timestamp = Math.floor(Date.now() / 1000).toString()
-const digest = createHmac('sha256', process.env.SALES_WEBHOOK_SECRET!)
-  .update(`${timestamp}.${rawBody}`)
-  .digest('hex')
-
-await fetch(`${process.env.BRRR_NOTIFIER_BASE_URL}/webhooks/sales`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Webhook-Id': payload.event_id,
-    'X-Webhook-Platform': payload.source.platform,
-    'X-Webhook-Timestamp': timestamp,
-    'X-Webhook-Signature': `sha256=${digest}`,
-  },
-  body: rawBody,
-})
-```
-
-## Successful sale payload
-
-All money values are integer minor units. For example, `15000` means
-`GHS 150.00`.
+## Payload
 
 ```json
 {
@@ -99,159 +67,70 @@ All money values are integer minor units. For example, `15000` means
     "environment": "production"
   },
   "sale": {
-    "id": "sale_12345",
-    "reference": "CHK-2026-000123",
-    "status": "succeeded",
-    "items": [
-      {
-        "product_id": "wassce-checker",
-        "product_name": "WASSCE Result Checker",
-        "category": "result-checker",
-        "variant": "2026",
-        "quantity": 2,
-        "unit_amount": 7500,
-        "total_amount": 15000
-      }
-    ],
-    "amount": {
-      "value": 15000,
-      "currency": "GHS",
-      "unit": "minor"
-    },
-    "payment": {
-      "provider": "paystack",
-      "method": "mobile_money",
-      "transaction_id": "txn_98765"
-    },
+    "id": "0198a2ac-7a71-7000-8000-000000000001",
+    "exam_type": "wassce",
+    "quantity": 2,
+    "amount": "GHS 150.00",
+    "payment_provider": "hubtel",
     "channel": "web"
   },
-  "revenue": {
-    "currency": "GHS",
-    "timezone": "Africa/Accra",
-    "business_date": "2026-07-15",
-    "calculated_at": "2026-07-15T14:30:00.000Z",
-    "platform": {
-      "today": { "gross": 425000, "refunded": 0, "net": 425000 },
-      "month": { "gross": 6250000, "refunded": 0, "net": 6250000 },
-      "all_time": { "gross": 28450000, "refunded": 0, "net": 28450000 }
-    },
-    "business": {
-      "today": { "gross": 810000, "refunded": 0, "net": 810000 },
-      "month": { "gross": 12400000, "refunded": 0, "net": 12400000 },
-      "all_time": { "gross": 59750000, "refunded": 0, "net": 59750000 }
-    }
-  },
-  "links": {
-    "dashboard": "https://checkers.example.com/admin/sales/sale_12345"
-  },
-  "metadata": {
-    "academic_year": "2026"
-  }
+  "dashboard_url": "https://dashboard.example.com/purchases?q=0198a2ac-7a71-7000-8000-000000000001"
 }
 ```
 
-## Refund payload
+The exact validation contract is:
 
-A refund event uses the same common `event_id`, `occurred_at`, `source`,
-`revenue`, `links`, and optional `metadata` fields as the sale event. Replace
-`sale` with `refund`:
-
-```json
-{
-  "event": "refund.succeeded",
-  "event_id": "evt_refund_456",
-  "occurred_at": "2026-07-15T15:00:00.000Z",
-  "source": {
-    "platform": "result-checker-hub",
-    "environment": "production"
-  },
-  "refund": {
-    "id": "refund_456",
-    "status": "succeeded",
-    "amount": {
-      "value": 7500,
-      "currency": "GHS",
-      "unit": "minor"
-    },
-    "original_sale": {
-      "id": "sale_12345",
-      "reference": "CHK-2026-000123"
-    },
-    "items": [
-      {
-        "product_id": "wassce-checker",
-        "product_name": "WASSCE Result Checker",
-        "category": "result-checker",
-        "variant": "2026",
-        "quantity": 1,
-        "unit_amount": 7500,
-        "total_amount": 7500
-      }
-    ]
-  },
-  "revenue": {
-    "currency": "GHS",
-    "timezone": "Africa/Accra",
-    "business_date": "2026-07-15",
-    "calculated_at": "2026-07-15T15:00:00.000Z",
-    "platform": {
-      "today": { "gross": 425000, "refunded": 7500, "net": 417500 },
-      "month": { "gross": 6250000, "refunded": 7500, "net": 6242500 },
-      "all_time": { "gross": 28450000, "refunded": 7500, "net": 28442500 }
-    },
-    "business": {
-      "today": { "gross": 810000, "refunded": 7500, "net": 802500 },
-      "month": { "gross": 12400000, "refunded": 7500, "net": 12392500 },
-      "all_time": { "gross": 59750000, "refunded": 7500, "net": 59742500 }
-    }
-  },
-  "links": {
-    "dashboard": "https://checkers.example.com/admin/sales/sale_12345"
-  }
-}
+```ts
+const SalesWebhookSchema = z.object({
+  event: z.literal('sale.succeeded'),
+  event_id: z.string().startsWith('evt_'),
+  occurred_at: z.string().datetime(),
+  source: z.object({
+    platform: z.string().min(1),
+    environment: z.enum(['development', 'staging', 'production']),
+  }),
+  sale: z.object({
+    id: z.string().uuid(),
+    exam_type: z.enum(['wassce', 'bece']),
+    quantity: z.number().int().positive().max(100),
+    amount: z.string().regex(/^GHS [0-9]+\.[0-9]{2}$/),
+    payment_provider: z.enum(['hubtel', 'checkerport', 'simulation']),
+    channel: z.enum(['web', 'ussd', 'api']),
+  }),
+  dashboard_url: z.string().url(),
+})
 ```
 
-## Field requirements
+Formatted amounts cannot contain commas. For example, `GHS 1500.00` is valid;
+`GHS 1,500.00` is invalid.
 
-- Currency must always be `GHS` and money unit must be `minor`.
-- Revenue timezone must be `Africa/Accra`.
-- `business_date` must be the Accra calendar date in `YYYY-MM-DD` format.
-- Include platform and combined business revenue for today, month, and all time.
-- The displayed “Today” amount comes from `revenue.platform.today.net`.
-- A sale or refund must contain between 1 and 100 product lines.
-- Quantities must be positive integers; monetary values must be integers.
-- Sale and refund amounts must be greater than zero.
-- Do not include customer names, phone numbers, or email addresses.
-- Keep the complete request below 256 KB.
+## Notification
 
-## Reliability and retry behavior
+The route creates a passive notification without a sound:
 
-Persist outgoing webhook jobs in the sales application's database. Do not rely
-on an in-memory queue. The transaction that records a successful sale/refund
-should also create its webhook job atomically, using an outbox pattern where
-possible.
+```text
+Title: Result Checker Hub • Successful sale
+Subtitle: Exam: WASSCE • Quantity: 2
+Message: Amount: GHS 150.00 • Provider: hubtel • Channel: web
+Action link: dashboard_url
+Thread: sales:result-checker-hub
+```
 
-Interpret responses as follows:
+The shared brrr transport lowercases notification strings before delivery.
 
-- `200`: delivered successfully or already delivered; stop retrying.
-- `409`: the same event is currently processing; retry later.
-- `502` or `503`: temporary notifier failure; retry later.
-- Other `4xx`: payload, identity, or signature error; log for investigation and
-  do not retry indefinitely without correcting the request.
+## Responses and retries
 
-Use exponential backoff, for example after 1, 5, 15, and 60 minutes. Keep the
-same `event_id` across every attempt. Generate a fresh timestamp and signature
-for every attempt. Mark the outbox job delivered only after receiving `200`.
+- A newly delivered event returns `200` with `notified: true`.
+- A completed duplicate returns `200` with `duplicate: true` and is not sent
+  again.
+- A concurrent duplicate returns retryable `409`.
+- A brrr delivery failure returns retryable `502`.
+- An unavailable event store returns retryable `503`.
+- Authentication and validation errors return non-success responses.
 
-## Acceptance criteria
+The sender must retain the same `event_id` across retries while generating a
+fresh timestamp and HMAC signature for each attempt.
 
-- A committed successful sale creates exactly one durable webhook event.
-- A committed full or partial refund creates exactly one durable webhook event.
-- Failed and pending payments do not create webhook events.
-- Revenue is calculated by the sales database, not by the notifier.
-- The payload includes the originating platform and every sold/refunded product.
-- The raw JSON body sent is byte-for-byte identical to the body used for HMAC.
-- Retries reuse the event ID and regenerate the timestamp and signature.
-- Customer information is absent from payloads and logs.
-- Automated tests cover signing, payload construction, retries, duplicate `200`
-  responses, and full and partial refunds.
+The notifier retains completed event IDs in SQLite for 90 days. HMAC
+verification, timestamp validation, header/platform matching, 256 KB request
+limits, event-ID idempotency, and passive delivery remain enabled.
