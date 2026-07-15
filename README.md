@@ -14,6 +14,9 @@ Supported inbound providers:
 ## How It Works
 
 Every webhook follows the same pipeline:
+Provider-specific logic is isolated under `src/modules/notifications/providers/*` so sales platforms, GitHub Actions, Expo, and others can be added as sibling providers.
+
+## 2. Project folder tree
 
 ```txt
 Inbound webhook
@@ -63,6 +66,16 @@ The server starts on `http://localhost:4888` by default.
 
 Other environment fields in `.env.example` are used for service metadata in
 logs and local deployment context.
+- `POST /webhooks/dokploy`
+- `POST /webhooks/github-actions`
+- `POST /webhooks/sales`
+
+The provider routes validate request bodies with typed Elysia + Zod schemas, normalize payloads, map to brrr payloads, and forward to brrr.
+
+## Sales webhook
+
+The complete sender contract and copy-paste implementation brief are in
+[SALES_WEBHOOK.md](./SALES_WEBHOOK.md).
 
 ## Webhook Routes
 

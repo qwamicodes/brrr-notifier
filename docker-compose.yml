@@ -9,3 +9,8 @@ services:
       - .env
     ports:
       - "4888:4888"
+    volumes:
+      - brrr-notifier-data:/app/data
+
+volumes:
+  brrr-notifier-data:
